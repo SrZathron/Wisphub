@@ -1,4 +1,4 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -38,12 +38,13 @@ client.initialize();
 const handleTormentaCommand = async (to) => {
     const textoTormenta = `*Aviso Importante de PuntoNet*\n\nEstimados clientes,\n\nDebido a la presencia de descargas atmosféricas, les recomendamos tomar la precaución de desconectar sus equipos de internet, incluyendo antenas y routers, para evitar posibles daños.\n\nLa seguridad y el cuidado de sus equipos es nuestra prioridad. Si necesitan asistencia adicional, no duden en contactarnos.\n\nSaludos cordiales,\n\n*El equipo de PuntoNet*`;
 
-    const imagePath = './tormenta.jpg';
+    const imagePath = '/home/server/whatsapp-bot/Imagenes/tormenta.jpg';
     const chatId = `${to}@c.us`;
 
     try {
         if (fs.existsSync(imagePath)) {
-            await client.sendMessage(chatId, textoTormenta);
+            const media = MessageMedia.fromFilePath(imagePath);
+            await client.sendMessage(chatId, media, { caption: textoTormenta });
             console.log(`Mensaje de tormenta enviado a ${to} con imagen.`);
         } else {
             console.warn('No se encontró la imagen en la ruta especificada.');
@@ -52,6 +53,28 @@ const handleTormentaCommand = async (to) => {
         }
     } catch (error) {
         console.error(`Error al enviar el mensaje de tormenta a ${to}:`, error);
+    }
+};
+
+// Función para manejar el comando !cambios
+const handleCambiosCommand = async (to) => {
+    const textoCambios = `Queremos informarte que a partir de enero de 2025 habrá un ajuste en el valor del abono mensual. Esta decisión se debe al incremento en los costos de nuestros proveedores, servicios de luz y otros gastos operativos que impactan directamente en nuestra actividad.\n\nSeguimos comprometidos a ofrecerte el mejor servicio posible y trabajando para que el aumento sea lo más moderado posible.\n\nSi tenés alguna consulta, no dudes en escribirnos. ¡Gracias por tu comprensión y confianza en nosotros!\n\nSaludos,\nPuntonet Internet`;
+
+    const imagePath = '/home/server/whatsapp-bot/Imagenes/cambios.jpg';
+    const chatId = `${to}@c.us`;
+
+    try {
+        if (fs.existsSync(imagePath)) {
+            const media = MessageMedia.fromFilePath(imagePath);
+            await client.sendMessage(chatId, media, { caption: textoCambios });
+            console.log(`Mensaje de cambios enviado a ${to} con imagen.`);
+        } else {
+            console.warn('No se encontró la imagen en la ruta especificada.');
+            await client.sendMessage(chatId, textoCambios);
+            console.log(`Mensaje de cambios enviado a ${to} sin imagen.`);
+        }
+    } catch (error) {
+        console.error(`Error al enviar el mensaje de cambios a ${to}:`, error);
     }
 };
 
@@ -80,6 +103,9 @@ app.post('/send', async (req, res) => {
         if (message.toLowerCase() === '!tormenta') {
             console.log('Solicitud de comando !tormenta recibida desde WispHub.');
             await handleTormentaCommand(formattedNumber);
+        } else if (message.toLowerCase() === '!cambios') {
+            console.log('Solicitud de comando !cambios recibida desde WispHub.');
+            await handleCambiosCommand(formattedNumber);
         } else {
             await client.sendMessage(chatId, message);
             console.log(`Mensaje enviado a ${formattedNumber}: ${message}`);
