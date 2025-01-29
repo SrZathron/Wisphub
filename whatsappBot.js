@@ -10,12 +10,11 @@ const port = 5001;
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Configuración del cliente de WhatsApp
+// Configuración del cliente de WhatsApp (sin cambios)
 const client = new Client({
     authStrategy: new LocalAuth(),
 });
 
-// Escanea el QR para iniciar sesión
 client.on('qr', (qr) => {
     console.log('QR recibido, escanéalo con tu WhatsApp:');
     qrcode.generate(qr, { small: true });
@@ -35,7 +34,7 @@ client.on('disconnected', (reason) => {
 
 client.initialize();
 
-// Función para formatear el número de teléfono
+// Función para formatear el número (sin cambios)
 const formatNumber = (number) => {
     if (number.startsWith('54') && !number.startsWith('549')) {
         return number.replace(/^54/, '549');
@@ -43,7 +42,40 @@ const formatNumber = (number) => {
     return number;
 };
 
-// Función para manejar el comando !tormenta
+// ========== SECCIÓN MODIFICADA ========== //
+const sendMessagesWithDelay = async (messages) => {
+    const maxDelayMs = 10000; // 10 segundos máximo
+    const numMessages = messages.length;
+
+    if (numMessages <= 3) {
+        for (const msg of messages) {
+            await client.sendMessage(msg.chatId, msg.mensaje);
+        }
+        return;
+    }
+
+    const incremento = maxDelayMs / (numMessages - 1);
+
+    for (let i = 0; i < numMessages; i++) {
+        const { chatId, mensaje } = messages[i];
+
+        try {
+            await client.sendMessage(chatId, mensaje);
+            console.log(`[${i + 1}/${numMessages}] Enviado a ${chatId}`);
+        } catch (error) {
+            console.error(`Error en ${chatId}:`, error.message);
+        }
+
+        if (i < numMessages - 1) {
+            const delay = Math.min(incremento * (i + 1), maxDelayMs);
+            console.log(`⏳ Espera: ${(delay / 1000).toFixed(2)}s`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+};
+// ========== FIN DE SECCIÓN MODIFICADA ========== //
+
+// Handlers de comandos !tormenta y !cambios (sin cambios)
 const handleTormentaCommand = async (to) => {
     const textoTormenta = `*Aviso Importante de PuntoNet*\n\nEstimados clientes,\n\nDebido a la presencia de descargas atmosféricas, les recomendamos tomar la precaución de desconectar sus equipos de internet, incluyendo antenas y routers, para evitar posibles daños.\n\nLa seguridad y el cuidado de sus equipos es nuestra prioridad. Si necesitan asistencia adicional, no duden en contactarnos.\n\nSaludos cordiales,\n\n*El equipo de PuntoNet*`;
 
@@ -65,9 +97,8 @@ const handleTormentaCommand = async (to) => {
     }
 };
 
-// Función para manejar el comando !cambios
 const handleCambiosCommand = async (to) => {
-    const textoCambios = `Comienza el 2025 conectado con alegría y esperanza. Les envía sus mejores deseos, PuntoNet. ¡Feliz Año Nuevo!`;
+    const textoCambios = `Comienza el 2025 conectado con alegría y esperanza. Les envía sus mejores deseos, PuntoNet. ¡Feliz Año Nuevo!`;
 
     const imagePath = '/home/lioespider75/Wisphub/imagenes/2025.jpg';
     const chatId = `${to}@c.us`;
@@ -89,50 +120,19 @@ const handleCambiosCommand = async (to) => {
     }
 };
 
-// Función para enviar mensajes con delay progresivo
-const sendMessagesWithDelay = async (messages) => {
-    const maxDelayMs = 10000; // 10 segundos
-    const numMessages = messages.length;
-
-    console.log(`Detectados ${numMessages} mensajes para enviar con delay.`); // Log inicial
-
-    for (let i = 0; i < numMessages; i++) {
-        const { chatId, mensaje } = messages[i];
-
-        try {
-            await client.sendMessage(chatId, mensaje);
-            console.log(`Mensaje enviado a ${chatId}: ${mensaje}`);
-        } catch (error) {
-            console.error(`Error al enviar mensaje a ${chatId}:`, error);
-        }
-
-        if (i < numMessages - 1) {
-            // Calcular el delay progresivo
-            const delay = Math.min((maxDelayMs / numMessages) * (i + 1), maxDelayMs);
-            console.log(`Esperando ${delay / 1000} segundos antes de enviar el siguiente mensaje...`);
-            await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-    }
-
-    console.log('Todos los mensajes han sido enviados correctamente.');
-};
-
-// Endpoint para recibir solicitudes de envío de mensajes
+// Endpoint /send (solo se modificó el llamado a sendMessagesWithDelay)
 app.post('/send', async (req, res) => {
     console.log('Datos recibidos:', req.body);
 
-    // Verifica si es una lista de mensajes
     if (req.body.messages && Array.isArray(req.body.messages)) {
         const messages = req.body.messages;
 
-        // Validar estructura de los mensajes
         if (!messages.every(msg => msg.chatId && msg.mensaje)) {
             return res.status(400).json({ error: 'El arreglo "messages" debe contener objetos con "chatId" y "mensaje".' });
         }
 
         try {
-            console.log('Enviando múltiples mensajes con delay...');
-            await sendMessagesWithDelay(messages);
+            await sendMessagesWithDelay(messages); // Línea modificada
             return res.json({ status: 'Todos los mensajes fueron enviados correctamente.' });
         } catch (error) {
             console.error('Error al enviar mensajes:', error);
@@ -140,9 +140,9 @@ app.post('/send', async (req, res) => {
         }
     }
 
-    // Manejo de mensaje único o comando para múltiples destinatarios
-    const to = req.body.to || req.body.destinatario; // Soporte para diferentes nombres de campos
-    const message = req.body.message || req.body.mensaje; // Soporte para diferentes nombres de campos
+    // Resto del código SIN CAMBIOS
+    const to = req.body.to || req.body.destinatario;
+    const message = req.body.message || req.body.mensaje;
 
     if (!to || !message) {
         return res.status(400).json({ error: 'Se requieren los campos "to" y "message" o sus equivalentes.' });
@@ -169,7 +169,6 @@ app.post('/send', async (req, res) => {
     }
 });
 
-// Manejo de errores de JSON malformado
 app.use((err, req, res, next) => {
     if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
         console.error('Error de sintaxis en el JSON:', err);
@@ -178,7 +177,6 @@ app.use((err, req, res, next) => {
     next();
 });
 
-// Iniciar el servidor Express
 app.listen(port, () => {
     console.log(`Servidor escuchando en http://0.0.0.0:${port}`);
 });
