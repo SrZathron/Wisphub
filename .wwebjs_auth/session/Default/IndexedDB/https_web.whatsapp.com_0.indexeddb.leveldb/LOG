@@ -121,3 +121,14 @@
 2025/01/29-12:53:12.714 87bf7 Delete type=2 #40
 2025/01/29-12:53:12.714 87bf7 Delete type=2 #39
 2025/01/29-12:53:12.714 87bf7 Delete type=2 #42
+2025/01/30-02:25:47.962 8acca Level-0 table #46: started
+2025/01/30-02:25:48.009 8acca Level-0 table #46: 1357329 bytes OK
+2025/01/30-02:25:48.011 8acca Delete type=0 #41
+2025/01/30-02:25:48.574 8acca Compacting 1@1 + 2@2 files
+2025/01/30-02:25:48.805 8acca Generated table #47@1: 46867 keys, 2194490 bytes
+2025/01/30-02:25:48.835 8acca Generated table #48@1: 26745 keys, 708609 bytes
+2025/01/30-02:25:48.835 8acca Compacted 1@1 + 2@2 files => 2903099 bytes
+2025/01/30-02:25:48.837 8acca compacted to: files[ 0 0 2 0 0 0 0 ]
+2025/01/30-02:25:48.837 8acca Delete type=2 #44
+2025/01/30-02:25:48.837 8acca Delete type=2 #43
+2025/01/30-02:25:48.837 8acca Delete type=2 #46
