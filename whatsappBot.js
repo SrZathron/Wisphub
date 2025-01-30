@@ -5,61 +5,94 @@ const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
 
+process.on('unhandledRejection', (error) => {
+    console.error('⚠️  Error no manejado:', error);
+});
+
 const app = express();
 const port = 5001;
 
-// Configuración inicial
+// Configuración
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Archivo para almacenar clientes y números autorizados
+// Archivos y constantes
 const CLIENTS_FILE = path.join(__dirname, 'clientes.json');
-const AUTHORIZED_NUMBERS = ['5492664031203', '5492664298513']; // Cambia por tus números
+const AUTHORIZED_NUMBERS = ['5491122334455', '5495543212345']; // Tus 2 números
 
-// ========== FUNCIONES DE GESTIÓN ========== //
+// ======================= FUNCIÓN DE FORMATEO MEJORADA ======================= //
+const formatNumber = (number) => {
+    const cleaned = number.replace(/\D/g, '');
+    
+    if (/^549\d{10}$/.test(cleaned)) return cleaned;
+    if (/^54\d{10}$/.test(cleaned)) return `549${cleaned.slice(2)}`;
+    if (/^\d{10}$/.test(cleaned)) return `549${cleaned}`;
+    
+    throw new Error(`Número inválido: ${number}`);
+};
+
+// ================== CONFIGURACIÓN DE WHATSAPP CON RECONEXIÓN ================= //
+const client = new Client({
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas'
+        ]
+    },
+    takeoverOnConflict: true
+});
+
+// Eventos del cliente
+client.on('qr', qr => qrcode.generate(qr, { small: true }));
+client.on('ready', () => console.log('✅ Bot autenticado'));
+client.on('auth_failure', msg => console.error('❌ Fallo de autenticación:', msg));
+client.on('disconnected', async (reason) => {
+    console.log('⏳ Reconectando... Motivo:', reason);
+    await client.initialize();
+});
+
+// ======================== GESTIÓN DE CLIENTES MEJORADA ======================== //
 const updateClients = async (number, action = 'add') => {
     try {
         const clients = fs.existsSync(CLIENTS_FILE) 
-            ? JSON.parse(fs.readFileSync(CLIENTS_FILE)) 
+            ? JSON.parse(fs.readFileSync(CLIENTS_FILE, 'utf-8'))
             : [];
 
-        if (action === 'add') {
-            if (!clients.some(c => c.number === number)) {
-                clients.push({ number, timestamp: new Date().toISOString() });
-            }
-        } else {
+        const exists = clients.some(c => c.number === number);
+        
+        if (action === 'add' && !exists) {
+            clients.push({
+                number,
+                timestamp: new Date().toISOString(),
+                lastMessage: new Date().toISOString()
+            });
+        } else if (action === 'remove') {
             const index = clients.findIndex(c => c.number === number);
             if (index !== -1) clients.splice(index, 1);
         }
 
-        fs.writeFileSync(CLIENTS_FILE, JSON.stringify(clients, null, 2));
+        fs.writeFileSync(CLIENTS_FILE, JSON.stringify(clients, null, 2), 'utf-8');
     } catch (error) {
-        console.error('Error actualizando clientes:', error);
+        console.error('Error en updateClients:', error);
     }
 };
 
-const getAllClients = () => {
+const getClientList = () => {
     try {
         return fs.existsSync(CLIENTS_FILE) 
-            ? JSON.parse(fs.readFileSync(CLIENTS_FILE)).map(c => c.number) 
+            ? JSON.parse(fs.readFileSync(CLIENTS_FILE, 'utf-8')).map(c => c.number)
             : [];
     } catch (error) {
-        console.error('Error leyendo clientes:', error);
+        console.error('Error en getClientList:', error);
         return [];
     }
 };
 
-// ========== CONFIGURACIÓN DEL BOT ========== //
-const client = new Client({ authStrategy: new LocalAuth() });
-
-client.on('qr', qr => qrcode.generate(qr, { small: true }));
-client.on('ready', () => console.log('Cliente listo'));
-client.on('auth_failure', msg => console.error('Fallo auth:', msg));
-client.on('disconnected', reason => console.log('Desconectado:', reason));
-
-client.initialize();
-
-// ========== MANEJO DE COMANDOS POR WHATSAPP ========== //
+// ======================== NÚCLEO DE FUNCIONALIDADES ======================== //
 client.on('message', async msg => {
     try {
         const sender = msg.from.split('@')[0];
@@ -68,137 +101,170 @@ client.on('message', async msg => {
         // Verificar autorización
         if (!AUTHORIZED_NUMBERS.includes(sender)) return;
 
-        // Comando ENVIAR
+        // Comando ENVIAR (Mejorado)
         if (body.startsWith('Enviar:')) {
-            const [_, content] = body.split('Enviar:')[1].split(':todos');
-            const command = content.trim().toLowerCase();
-            const clients = getAllClients();
+            const [_, content] = body.split(':todos');
+            const command = content.replace('Enviar:', '').trim();
+            
+            // Obtener TODOS los destinatarios: clientes + autorizados
+            const storedClients = getClientList();
+            const allRecipients = [...new Set([...storedClients, ...AUTHORIZED_NUMBERS])];
 
-            if (clients.length === 0) {
-                await msg.reply('❌ No hay clientes registrados');
-                return;
+            if (allRecipients.length === 0) {
+                return await msg.reply('❌ No hay contactos para enviar');
             }
 
-            await msg.reply(`🚀 Enviando a ${clients.length} clientes...`);
+            await msg.reply(`📤 Enviando a ${allRecipients.length} contactos...`);
 
-            // Usar comandos existentes (!tormenta, !cambios) o mensaje personalizado
-            const messages = clients.map(chatId => ({
-                chatId: `${chatId}@c.us`,
-                mensaje: command.startsWith('!') ? command : content.trim()
+            // Preparar mensajes incluyendo autorizados
+            const messages = allRecipients.map(number => ({
+                chatId: `${number}@c.us`,
+                mensaje: command
             }));
 
             await sendMessagesWithDelay(messages);
-            await msg.reply('✅ Envío masivo completado');
+            await msg.reply('✅ Envío completado');
         }
 
         // Comando ELIMINAR
         if (body.startsWith('Eliminar:')) {
             const number = body.split('Eliminar:')[1].trim();
             await updateClients(number, 'remove');
-            await msg.reply(`❌ Número ${number} eliminado`);
+            await msg.reply(`🗑️ Número eliminado: ${number}`);
         }
 
     } catch (error) {
-        console.error('Error procesando comando:', error);
+        console.error('Error en comando:', error);
+        await msg.reply(`❌ Error: ${error.message}`);
     }
 });
 
-// ========== FUNCIONES ORIGINALES (COMPATIBLES) ========== //
+// ================== SISTEMA DE DELAY CON CONTROL DE ERRORES ================== //
 const sendMessagesWithDelay = async (messages) => {
-    const maxDelayMs = 10000;
-    const numMessages = messages.length;
+    const MAX_DELAY_MS = 10000;
+    const totalMessages = messages.length;
 
-    if (numMessages <= 3) {
+    if (totalMessages <= 3) {
         for (const msg of messages) {
-            await client.sendMessage(msg.chatId, msg.mensaje);
+            await processMessage(msg);
         }
         return;
     }
 
-    const incremento = maxDelayMs / (numMessages - 1);
-
-    for (let i = 0; i < numMessages; i++) {
-        const { chatId, mensaje } = messages[i];
-
+    const delayStep = MAX_DELAY_MS / (totalMessages - 1);
+    
+    for (let i = 0; i < totalMessages; i++) {
         try {
-            // Ejecutar comandos especiales si existen
-            if (mensaje.toLowerCase() === '!tormenta') {
-                await handleTormentaCommand(chatId.split('@')[0]);
-            } else if (mensaje.toLowerCase() === '!cambios') {
-                await handleCambiosCommand(chatId.split('@')[0]);
-            } else {
-                await client.sendMessage(chatId, mensaje);
-            }
-            console.log(`[${i + 1}/${numMessages}] Enviado a ${chatId}`);
-        } catch (error) {
-            console.error(`Error en ${chatId}:`, error.message);
-        }
+            await processMessage(messages[i]);
+            console.log(`[${i + 1}/${totalMessages}] Enviado`);
 
-        if (i < numMessages - 1) {
-            const delay = Math.min(incremento * (i + 1), maxDelayMs);
-            console.log(`⏳ Espera: ${(delay / 1000).toFixed(2)}s`);
-            await new Promise(resolve => setTimeout(resolve, delay));
+            if (i < totalMessages - 1) {
+                const currentDelay = Math.min(delayStep * (i + 1), MAX_DELAY_MS);
+                console.log(`⏳ Espera: ${(currentDelay / 1000).toFixed(2)}s`);
+                await new Promise(resolve => setTimeout(resolve, currentDelay));
+            }
+        } catch (error) {
+            console.error(`Error en mensaje ${i + 1}:`, error.message);
         }
     }
 };
 
-// Handlers originales (sin cambios)
-const handleTormentaCommand = async (to) => {
-    const textoTormenta = `*Aviso Importante de PuntoNet*\n\nEstimados clientes,\n\nDebido a la presencia de descargas atmosféricas, les recomendamos tomar la precaución de desconectar sus equipos de internet, incluyendo antenas y routers, para evitar posibles daños.\n\nLa seguridad y el cuidado de sus equipos es nuestra prioridad. Si necesitan asistencia adicional, no duden en contactarnos.\n\nSaludos cordiales,\n\n*El equipo de PuntoNet*`;
-
-    const imagePath = '/home/lioespider75/Wisphub/imagenes/tormenta.jpg';
-    const chatId = `${to}@c.us`;
+const processMessage = async ({ chatId, mensaje }) => {
+    const command = mensaje.trim().toLowerCase();
+    const number = chatId.split('@')[0];
 
     try {
-        if (fs.existsSync(imagePath)) {
-            const media = MessageMedia.fromFilePath(imagePath);
-            await client.sendMessage(chatId, media, { caption: textoTormenta });
-        } else {
-            await client.sendMessage(chatId, textoTormenta);
+        switch (command) {
+            case '!tormenta':
+                await handleTormenta(number);
+                break;
+            case '!cambios':
+                await handleCambios(number);
+                break;
+            default:
+                await client.sendMessage(chatId, mensaje);
         }
     } catch (error) {
-        console.error(`Error al enviar !tormenta a ${to}:`, error);
+        console.error(`Error en ${number}:`, error);
+        throw error;
     }
 };
 
-const handleCambiosCommand = async (to) => { /* ... mismo código ... */ };
-
-// ========== ENDPOINT /send (COMPATIBLE) ========== //
-app.post('/send', async (req, res) => {
-    // ... (código original sin cambios)
+// ======================= HANDLERS DE COMANDOS CON IMÁGENES ======================= //
+const handleTormenta = async (number) => {
+    const imagePath = path.join(__dirname, 'imagenes/tormenta.jpg');
+    const message = `*Aviso Importante*\n...`; // Mensaje completo
 
     try {
+        const media = fs.existsSync(imagePath) 
+            ? MessageMedia.fromFilePath(imagePath)
+            : null;
+        
+        await client.sendMessage(
+            `${number}@c.us`, 
+            media || message,
+            media ? { caption: message } : {}
+        );
+    } catch (error) {
+        console.error(`Error en !tormenta (${number}):`, error);
+        throw error;
+    }
+};
+
+const handleCambios = async (number) => {
+    const imagePath = path.join(__dirname, 'imagenes/2025.jpg');
+    const message = `¡Feliz 2025!...`; // Mensaje completo
+
+    try {
+        const media = fs.existsSync(imagePath) 
+            ? MessageMedia.fromFilePath(imagePath)
+            : null;
+        
+        await client.sendMessage(
+            `${number}@c.us`, 
+            media || message,
+            media ? { caption: message } : {}
+        );
+    } catch (error) {
+        console.error(`Error en !cambios (${number}):`, error);
+        throw error;
+    }
+};
+
+// ======================= ENDPOINT PARA WISPHUB ======================= //
+app.post('/send', async (req, res) => {
+    try {
+        const { to, message } = req.body;
+        if (!to || !message) {
+            return res.status(400).json({ error: 'Datos incompletos' });
+        }
+
         const formattedNumber = formatNumber(to);
+        await updateClients(formattedNumber);  // Almacenar automáticamente
+
         const chatId = `${formattedNumber}@c.us`;
+        const command = message.trim().toLowerCase();
 
-        // Almacenar número automáticamente
-        await updateClients(formattedNumber);
-
-        // Ejecutar comandos originales
-        if (message.toLowerCase() === '!cambios') {
-            await handleCambiosCommand(formattedNumber);
-        } else if (message.toLowerCase() === '!tormenta') {
-            await handleTormentaCommand(formattedNumber);
+        if (command === '!tormenta') {
+            await handleTormenta(formattedNumber);
+        } else if (command === '!cambios') {
+            await handleCambios(formattedNumber);
         } else {
             await client.sendMessage(chatId, message);
         }
 
-        return res.json({ status: 'Mensaje enviado', to: formattedNumber, message });
+        res.json({ 
+            status: 'success',
+            number: formattedNumber,
+            message: message
+        });
+
     } catch (error) {
-        // ... (manejo de errores original)
+        console.error('Error en /send:', error);
+        res.status(400).json({ error: error.message });
     }
 });
 
-// ... (resto del código sin cambios)
-
-app.use((err, req, res, next) => {
-    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-        console.error('Error de sintaxis en el JSON:', err);
-        return res.status(400).json({ error: 'El cuerpo de la solicitud tiene un formato incorrecto.' });
-    }
-    next();
-});
-
-app.listen(port, () => {
-    console.log(`Servidor escuchando en http://0.0.0.0:${port}`);
-});
+// ======================= INICIALIZACIÓN ======================= //
+client.initialize();
+app.listen(port, () => console.log(`🌍 Servidor en http://0.0.0.0:${port}`));
