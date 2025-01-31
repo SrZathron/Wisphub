@@ -5,33 +5,15 @@ const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
 
-process.on('unhandledRejection', (error) => {
-    console.error('⚠️  Error no manejado:', error);
-});
-
-const app = express();
-const port = 5001;
-
-// Configuración
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// Archivos y constantes
+// ================================================== //
+//                     CONSTANTES                     //
+// ================================================== //
 const CLIENTS_FILE = path.join(__dirname, 'clientes.json');
-const AUTHORIZED_NUMBERS = ['5491122334455', '5495543212345']; // Tus 2 números
+const AUTHORIZED_NUMBERS = ['5492664031203', '5492664298513']; // Tus números
 
-// ======================= FUNCIÓN DE FORMATEO MEJORADA ======================= //
-const formatNumber = (number) => {
-    const cleaned = number.replace(/\D/g, '');
-    
-    if (/^549\d{10}$/.test(cleaned)) return cleaned;
-    if (/^54\d{10}$/.test(cleaned)) return `549${cleaned.slice(2)}`;
-    if (/^\d{10}$/.test(cleaned)) return `549${cleaned}`;
-    
-    throw new Error(`Número inválido: ${number}`);
-};
-
-// ================== CONFIGURACIÓN DE WHATSAPP CON RECONEXIÓN ================= //
+// ================================================== //
+//               CONFIGURACIÓN WHATSAPP               //
+// ================================================== //
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
@@ -39,40 +21,44 @@ const client = new Client({
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas'
+            '--disable-dev-shm-usage'
         ]
     },
     takeoverOnConflict: true
 });
 
-// Eventos del cliente
-client.on('qr', qr => qrcode.generate(qr, { small: true }));
-client.on('ready', () => console.log('✅ Bot autenticado'));
-client.on('auth_failure', msg => console.error('❌ Fallo de autenticación:', msg));
-client.on('disconnected', async (reason) => {
-    console.log('⏳ Reconectando... Motivo:', reason);
-    await client.initialize();
-});
+// ================================================== //
+//                 FUNCIÓN DE NÚMEROS                 //
+// ================================================== //
+const formatNumber = (number) => {
+    const cleaned = number.replace(/\D/g, '');
+    
+    if (/^549\d{10}$/.test(cleaned)) return cleaned;
+    if (/^54\d{10}$/.test(cleaned)) return `549${cleaned.slice(2)}`;
+    if (/^\d{10}$/.test(cleaned)) return `549${cleaned}`;
+    
+    throw new Error(`Formato inválido: ${number}`);
+};
 
-// ======================== GESTIÓN DE CLIENTES MEJORADA ======================== //
+// ================================================== //
+//              GESTIÓN DE CLIENTES                   //
+// ================================================== //
 const updateClients = async (number, action = 'add') => {
     try {
         const clients = fs.existsSync(CLIENTS_FILE) 
             ? JSON.parse(fs.readFileSync(CLIENTS_FILE, 'utf-8'))
             : [];
 
-        const exists = clients.some(c => c.number === number);
+        const index = clients.findIndex(c => c.number === number);
         
-        if (action === 'add' && !exists) {
+        if (action === 'add' && index === -1) {
             clients.push({
                 number,
                 timestamp: new Date().toISOString(),
-                lastMessage: new Date().toISOString()
+                lastMessage: null
             });
-        } else if (action === 'remove') {
-            const index = clients.findIndex(c => c.number === number);
-            if (index !== -1) clients.splice(index, 1);
+        } else if (action === 'remove' && index !== -1) {
+            clients.splice(index, 1);
         }
 
         fs.writeFileSync(CLIENTS_FILE, JSON.stringify(clients, null, 2), 'utf-8');
@@ -92,179 +78,123 @@ const getClientList = () => {
     }
 };
 
-// ======================== NÚCLEO DE FUNCIONALIDADES ======================== //
+// ================================================== //
+//               MANEJO DE COMANDOS                   //
+// ================================================== //
 client.on('message', async msg => {
     try {
         const sender = msg.from.split('@')[0];
         const body = msg.body.trim();
 
-        // Verificar autorización
-        if (!AUTHORIZED_NUMBERS.includes(sender)) return;
+        if (!AUTHORIZED_NUMBERS.includes(sender)) {
+            console.log(`Intento no autorizado de: ${sender}`);
+            return;
+        }
 
-        // Comando ENVIAR (Mejorado)
+        // Comando ENVIAR
         if (body.startsWith('Enviar:')) {
-            const [_, content] = body.split(':todos');
-            const command = content.replace('Enviar:', '').trim();
+            const command = body.split('Enviar:')[1].split(':todos')[0].trim();
+            const allRecipients = [...new Set([...getClientList(), ...AUTHORIZED_NUMBERS])];
             
-            // Obtener TODOS los destinatarios: clientes + autorizados
-            const storedClients = getClientList();
-            const allRecipients = [...new Set([...storedClients, ...AUTHORIZED_NUMBERS])];
-
-            if (allRecipients.length === 0) {
-                return await msg.reply('❌ No hay contactos para enviar');
+            console.log('Destinatarios:', allRecipients);
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            for (const number of allRecipients) {
+                try {
+                    await processCommand(number, command);
+                    successCount++;
+                } catch (error) {
+                    errorCount++;
+                    console.error(`Error en ${number}:`, error.message);
+                }
             }
-
-            await msg.reply(`📤 Enviando a ${allRecipients.length} contactos...`);
-
-            // Preparar mensajes incluyendo autorizados
-            const messages = allRecipients.map(number => ({
-                chatId: `${number}@c.us`,
-                mensaje: command
-            }));
-
-            await sendMessagesWithDelay(messages);
-            await msg.reply('✅ Envío completado');
+            
+            await msg.reply(`✅ ${successCount} enviados | ❌ ${errorCount} fallidos`);
         }
 
         // Comando ELIMINAR
         if (body.startsWith('Eliminar:')) {
-            const number = body.split('Eliminar:')[1].trim();
-            await updateClients(number, 'remove');
-            await msg.reply(`🗑️ Número eliminado: ${number}`);
+            const targetNumber = body.split('Eliminar:')[1].trim();
+            await updateClients(targetNumber, 'remove');
+            await msg.reply(`Número eliminado: ${targetNumber}`);
         }
 
     } catch (error) {
-        console.error('Error en comando:', error);
-        await msg.reply(`❌ Error: ${error.message}`);
+        console.error('Error crítico:', error);
+        await msg.reply(`Error: ${error.message}`);
     }
 });
 
-// ================== SISTEMA DE DELAY CON CONTROL DE ERRORES ================== //
-const sendMessagesWithDelay = async (messages) => {
-    const MAX_DELAY_MS = 10000;
-    const totalMessages = messages.length;
-
-    if (totalMessages <= 3) {
-        for (const msg of messages) {
-            await processMessage(msg);
-        }
-        return;
-    }
-
-    const delayStep = MAX_DELAY_MS / (totalMessages - 1);
+// ================================================== //
+//                 FUNCIONES PRINCIPALES              //
+// ================================================== //
+const processCommand = async (number, command) => {
+    const chatId = `${number}@c.us`;
     
-    for (let i = 0; i < totalMessages; i++) {
-        try {
-            await processMessage(messages[i]);
-            console.log(`[${i + 1}/${totalMessages}] Enviado`);
-
-            if (i < totalMessages - 1) {
-                const currentDelay = Math.min(delayStep * (i + 1), MAX_DELAY_MS);
-                console.log(`⏳ Espera: ${(currentDelay / 1000).toFixed(2)}s`);
-                await new Promise(resolve => setTimeout(resolve, currentDelay));
-            }
-        } catch (error) {
-            console.error(`Error en mensaje ${i + 1}:`, error.message);
-        }
-    }
-};
-
-const processMessage = async ({ chatId, mensaje }) => {
-    const command = mensaje.trim().toLowerCase();
-    const number = chatId.split('@')[0];
-
     try {
-        switch (command) {
+        switch (command.toLowerCase()) {
             case '!tormenta':
-                await handleTormenta(number);
+                await sendAlert(number, 'tormenta.jpg', '*Aviso Importante de PuntoNet*\n\nEstimados clientes,\n\nDebido a la presencia de descargas atmosféricas, les recomendamos tomar la precaución de desconectar sus equipos de internet, incluyendo antenas y routers, para evitar posibles daños.\n\nLa seguridad y el cuidado de sus equipos es nuestra prioridad. Si necesitan asistencia adicional, no duden en contactarnos.\n\nSaludos cordiales,\n\n*El equipo de PuntoNet*');
                 break;
             case '!cambios':
-                await handleCambios(number);
+                await sendAlert(number, '2025.jpg', '*Actualización 2025*');
                 break;
             default:
-                await client.sendMessage(chatId, mensaje);
+                await client.sendMessage(chatId, command);
+        }
+        await updateClients(number);
+    } catch (error) {
+        throw new Error(`Error: ${error.message}`);
+    }
+};
+
+const sendAlert = async (number, imageName, message) => {
+    const imagePath = path.join(__dirname, 'imagenes', imageName);
+    
+    try {
+        if (fs.existsSync(imagePath)) {
+            const media = MessageMedia.fromFilePath(imagePath);
+            await client.sendMessage(`${number}@c.us`, media, { caption: message });
+        } else {
+            await client.sendMessage(`${number}@c.us`, message);
         }
     } catch (error) {
-        console.error(`Error en ${number}:`, error);
-        throw error;
+        throw new Error(error.message);
     }
 };
 
-// ======================= HANDLERS DE COMANDOS CON IMÁGENES ======================= //
-const handleTormenta = async (number) => {
-    const imagePath = path.join(__dirname, 'imagenes/tormenta.jpg');
-    const message = `*Aviso Importante*\n...`; // Mensaje completo
+// ================================================== //
+//                 CONFIGURACIÓN SERVER               //
+// ================================================== //
+const app = express();
+const port = 5001;
 
-    try {
-        const media = fs.existsSync(imagePath) 
-            ? MessageMedia.fromFilePath(imagePath)
-            : null;
-        
-        await client.sendMessage(
-            `${number}@c.us`, 
-            media || message,
-            media ? { caption: message } : {}
-        );
-    } catch (error) {
-        console.error(`Error en !tormenta (${number}):`, error);
-        throw error;
-    }
-};
-
-const handleCambios = async (number) => {
-    const imagePath = path.join(__dirname, 'imagenes/2025.jpg');
-    const message = `¡Feliz 2025!...`; // Mensaje completo
-
-    try {
-        const media = fs.existsSync(imagePath) 
-            ? MessageMedia.fromFilePath(imagePath)
-            : null;
-        
-        await client.sendMessage(
-            `${number}@c.us`, 
-            media || message,
-            media ? { caption: message } : {}
-        );
-    } catch (error) {
-        console.error(`Error en !cambios (${number}):`, error);
-        throw error;
-    }
-};
-
-// ======================= ENDPOINT PARA WISPHUB ======================= //
+app.use(bodyParser.json());
 app.post('/send', async (req, res) => {
     try {
         const { to, message } = req.body;
-        if (!to || !message) {
-            return res.status(400).json({ error: 'Datos incompletos' });
-        }
-
+        if (!to || !message) return res.status(400).json({ error: 'Datos requeridos' });
+        
         const formattedNumber = formatNumber(to);
-        await updateClients(formattedNumber);  // Almacenar automáticamente
-
-        const chatId = `${formattedNumber}@c.us`;
-        const command = message.trim().toLowerCase();
-
-        if (command === '!tormenta') {
-            await handleTormenta(formattedNumber);
-        } else if (command === '!cambios') {
-            await handleCambios(formattedNumber);
-        } else {
-            await client.sendMessage(chatId, message);
-        }
-
-        res.json({ 
-            status: 'success',
-            number: formattedNumber,
-            message: message
-        });
-
+        await processCommand(formattedNumber, message);
+        
+        res.json({ status: 'success', number: formattedNumber });
+        
     } catch (error) {
-        console.error('Error en /send:', error);
-        res.status(400).json({ error: error.message });
+        res.status(500).json({ error: error.message });
     }
 });
 
-// ======================= INICIALIZACIÓN ======================= //
+// ================================================== //
+//                 INICIALIZACIÓN                     //
+// ================================================== //
 client.initialize();
-app.listen(port, () => console.log(`🌍 Servidor en http://0.0.0.0:${port}`));
+client.on('qr', qr => qrcode.generate(qr, { small: true }));
+client.on('ready', () => console.log('Bot autenticado'));
+client.on('disconnected', (reason) => console.log('Desconectado:', reason));
+
+app.listen(port, () => {
+    console.log(`Servidor activo en puerto ${port}`);
+});

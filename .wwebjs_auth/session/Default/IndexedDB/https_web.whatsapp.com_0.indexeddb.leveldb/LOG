@@ -1,23 +1,23 @@
-2025/01/30-19:03:27.583 8e655 Reusing MANIFEST /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
-2025/01/30-19:03:27.583 8e655 Recovering log #140
-2025/01/30-19:03:27.593 8e655 Reusing old log /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000140.log 
-2025/01/30-19:03:34.649 8e658 Level-0 table #150: started
-2025/01/30-19:03:34.659 8e658 Level-0 table #150: 37933 bytes OK
-2025/01/30-19:03:34.662 8e658 Delete type=0 #140
-2025/01/30-19:03:34.666 8e658 Manual compaction at level-0 from '\x00\x18\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x19\x00\x00\x00' @ 0 : 0; will stop at (end)
-2025/01/30-19:03:40.090 8e658 Compacting 1@1 + 6@2 files
-2025/01/30-19:03:40.310 8e658 Generated table #151@1: 19968 keys, 2179134 bytes
-2025/01/30-19:03:40.434 8e658 Generated table #152@1: 10513 keys, 2173025 bytes
-2025/01/30-19:03:40.550 8e658 Generated table #153@1: 16453 keys, 2174690 bytes
-2025/01/30-19:03:40.695 8e658 Generated table #154@1: 79379 keys, 2223145 bytes
-2025/01/30-19:03:40.868 8e658 Generated table #155@1: 103387 keys, 2255361 bytes
-2025/01/30-19:03:40.946 8e658 Generated table #156@1: 43243 keys, 951588 bytes
-2025/01/30-19:03:40.946 8e658 Compacted 1@1 + 6@2 files => 11956943 bytes
-2025/01/30-19:03:40.950 8e658 compacted to: files[ 0 0 6 0 0 0 0 ]
-2025/01/30-19:03:40.951 8e658 Delete type=2 #142
-2025/01/30-19:03:40.951 8e658 Delete type=2 #147
-2025/01/30-19:03:40.951 8e658 Delete type=2 #146
-2025/01/30-19:03:40.951 8e658 Delete type=2 #145
-2025/01/30-19:03:40.951 8e658 Delete type=2 #150
-2025/01/30-19:03:40.951 8e658 Delete type=2 #143
-2025/01/30-19:03:40.951 8e658 Delete type=2 #144
+2025/01/31-00:45:20.942 90978 Reusing MANIFEST /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2025/01/31-00:45:20.942 90978 Recovering log #141
+2025/01/31-00:45:20.954 90978 Reusing old log /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000141.log 
+2025/01/31-00:45:23.846 90968 Level-0 table #151: started
+2025/01/31-00:45:23.854 90968 Level-0 table #151: 25381 bytes OK
+2025/01/31-00:45:23.858 90968 Delete type=0 #141
+2025/01/31-00:45:23.859 90968 Manual compaction at level-0 from '\x00\x18\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x19\x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/01/31-00:45:27.210 90944 Compacting 1@1 + 6@2 files
+2025/01/31-00:45:27.320 90944 Generated table #152@1: 20172 keys, 2179430 bytes
+2025/01/31-00:45:27.375 90944 Generated table #153@1: 9448 keys, 2167584 bytes
+2025/01/31-00:45:27.472 90944 Generated table #154@1: 17738 keys, 2177887 bytes
+2025/01/31-00:45:27.652 90944 Generated table #155@1: 72780 keys, 2215017 bytes
+2025/01/31-00:45:27.836 90944 Generated table #156@1: 102897 keys, 2252650 bytes
+2025/01/31-00:45:27.980 90944 Generated table #157@1: 51451 keys, 1127144 bytes
+2025/01/31-00:45:27.980 90944 Compacted 1@1 + 6@2 files => 12119712 bytes
+2025/01/31-00:45:27.983 90944 compacted to: files[ 0 0 6 0 0 0 0 ]
+2025/01/31-00:45:27.984 90944 Delete type=2 #151
+2025/01/31-00:45:27.984 90944 Delete type=2 #147
+2025/01/31-00:45:27.984 90944 Delete type=2 #146
+2025/01/31-00:45:27.984 90944 Delete type=2 #148
+2025/01/31-00:45:27.984 90944 Delete type=2 #145
+2025/01/31-00:45:27.984 90944 Delete type=2 #143
+2025/01/31-00:45:27.984 90944 Delete type=2 #144
