@@ -9,7 +9,8 @@ const path = require('path');
 //                     CONSTANTES                     //
 // ================================================== //
 const CLIENTS_FILE = path.join(__dirname, 'clientes.json');
-const AUTHORIZED_NUMBERS = ['5492664031203', '5492664298513']; // Tus números
+const AUTHORIZED_NUMBERS = ['5492664031203', '5492664298513'];
+const MAX_DELAY_MS = 10000; // 10 segundos máximo
 
 // ================================================== //
 //               CONFIGURACIÓN WHATSAPP               //
@@ -55,7 +56,7 @@ const updateClients = async (number, action = 'add') => {
             clients.push({
                 number,
                 timestamp: new Date().toISOString(),
-                lastMessage: null
+                lastMessage: new Date().toISOString()
             });
         } else if (action === 'remove' && index !== -1) {
             clients.splice(index, 1);
@@ -79,6 +80,46 @@ const getClientList = () => {
 };
 
 // ================================================== //
+//               SISTEMA DE DELAY Y LOGS              //
+// ================================================== //
+const sendMessagesWithDelay = async (messages) => {
+    const totalMessages = messages.length;
+    
+    if (totalMessages <= 3) {
+        console.log('\n=== ENVÍO RÁPIDO ===');
+        for (const msg of messages) {
+            try {
+                await processCommand(msg.number, msg.content);
+                console.log(`[INMEDIATO] Enviado a ${msg.number}`);
+            } catch (error) {
+                console.error(`[ERROR] ${msg.number}: ${error.message}`);
+            }
+        }
+        return;
+    }
+
+    console.log('\n=== ENVÍO CON DELAY PROGRESIVO ===');
+    const delayIncrement = MAX_DELAY_MS / (totalMessages - 1);
+    
+    for (let i = 0; i < totalMessages; i++) {
+        const { number, content } = messages[i];
+        
+        try {
+            await processCommand(number, content);
+            console.log(`[ENVIADO] ${number}${i > 0 ? ' (con delay)' : ''}`);
+        } catch (error) {
+            console.error(`[FALLIDO] ${number}: ${error.message}`);
+        }
+
+        if (i < totalMessages - 1) {
+            const currentDelay = Math.min(delayIncrement * (i + 1), MAX_DELAY_MS);
+            console.log(`⏳ Esperando ${(currentDelay / 1000).toFixed(2)}s`);
+            await new Promise(resolve => setTimeout(resolve, currentDelay));
+        }
+    }
+};
+
+// ================================================== //
 //               MANEJO DE COMANDOS                   //
 // ================================================== //
 client.on('message', async msg => {
@@ -87,43 +128,37 @@ client.on('message', async msg => {
         const body = msg.body.trim();
 
         if (!AUTHORIZED_NUMBERS.includes(sender)) {
-            console.log(`Intento no autorizado de: ${sender}`);
+            console.log(`[BLOQUEADO] Intento de acceso de ${sender}`);
             return;
         }
 
-        // Comando ENVIAR
         if (body.startsWith('Enviar:')) {
             const command = body.split('Enviar:')[1].split(':todos')[0].trim();
             const allRecipients = [...new Set([...getClientList(), ...AUTHORIZED_NUMBERS])];
             
-            console.log('Destinatarios:', allRecipients);
+            console.log(`\n=== INICIANDO ENVÍO MASIVO ===\nDestinatarios: ${allRecipients.length}`);
             
-            let successCount = 0;
-            let errorCount = 0;
+            const messages = allRecipients.map(number => ({
+                number: number,
+                content: command
+            }));
+
+            await sendMessagesWithDelay(messages);
             
-            for (const number of allRecipients) {
-                try {
-                    await processCommand(number, command);
-                    successCount++;
-                } catch (error) {
-                    errorCount++;
-                    console.error(`Error en ${number}:`, error.message);
-                }
-            }
-            
-            await msg.reply(`✅ ${successCount} enviados | ❌ ${errorCount} fallidos`);
+            console.log('\n=== ENVÍO COMPLETADO ===');
+            await msg.reply(`✅ Enviado a ${allRecipients.length} contactos`);
         }
 
-        // Comando ELIMINAR
         if (body.startsWith('Eliminar:')) {
             const targetNumber = body.split('Eliminar:')[1].trim();
             await updateClients(targetNumber, 'remove');
-            await msg.reply(`Número eliminado: ${targetNumber}`);
+            console.log(`[ELIMINADO] ${targetNumber}`);
+            await msg.reply(`🗑️ Eliminado: ${targetNumber}`);
         }
 
     } catch (error) {
-        console.error('Error crítico:', error);
-        await msg.reply(`Error: ${error.message}`);
+        console.error('[ERROR CRÍTICO]', error);
+        await msg.reply(`❌ Error: ${error.message}`);
     }
 });
 
@@ -131,34 +166,35 @@ client.on('message', async msg => {
 //                 FUNCIONES PRINCIPALES              //
 // ================================================== //
 const processCommand = async (number, command) => {
-    const chatId = `${number}@c.us`;
-    
     try {
         switch (command.toLowerCase()) {
             case '!tormenta':
-                await sendAlert(number, 'tormenta.jpg', '*Aviso Importante de PuntoNet*\n\nEstimados clientes,\n\nDebido a la presencia de descargas atmosféricas, les recomendamos tomar la precaución de desconectar sus equipos de internet, incluyendo antenas y routers, para evitar posibles daños.\n\nLa seguridad y el cuidado de sus equipos es nuestra prioridad. Si necesitan asistencia adicional, no duden en contactarnos.\n\nSaludos cordiales,\n\n*El equipo de PuntoNet*');
+                await sendAlert(number, 'tormenta.jpg', '*Aviso Importante de PuntoNet*\n\nEstimados clientes,\n\nDebido a condiciones climáticas adversas, recomendamos desconectar sus equipos.\n\nAtentamente,\nEquipo PuntoNet');
                 break;
             case '!cambios':
-                await sendAlert(number, '2025.jpg', '*Actualización 2025*');
+                await sendAlert(number, '2025.jpg', '¡Feliz Año Nuevo! Comienza el 2025 conectado con PuntoNet.');
                 break;
             default:
-                await client.sendMessage(chatId, command);
+                await client.sendMessage(`${number}@c.us`, command);
         }
         await updateClients(number);
     } catch (error) {
-        throw new Error(`Error: ${error.message}`);
+        throw new Error(`Error procesando comando: ${error.message}`);
     }
 };
 
 const sendAlert = async (number, imageName, message) => {
     const imagePath = path.join(__dirname, 'imagenes', imageName);
+    const chatId = `${number}@c.us`;
     
     try {
         if (fs.existsSync(imagePath)) {
             const media = MessageMedia.fromFilePath(imagePath);
-            await client.sendMessage(`${number}@c.us`, media, { caption: message });
+            await client.sendMessage(chatId, media, { caption: message });
+            console.log(`⚡ Alerta con imagen enviada a ${number}`);
         } else {
-            await client.sendMessage(`${number}@c.us`, message);
+            await client.sendMessage(chatId, message);
+            console.log(`⚡ Alerta sin imagen enviada a ${number}`);
         }
     } catch (error) {
         throw new Error(error.message);
@@ -178,12 +214,20 @@ app.post('/send', async (req, res) => {
         if (!to || !message) return res.status(400).json({ error: 'Datos requeridos' });
         
         const formattedNumber = formatNumber(to);
+        console.log(`[SOLICITUD MANUAL] Iniciando envío a ${formattedNumber}`);
         await processCommand(formattedNumber, message);
         
-        res.json({ status: 'success', number: formattedNumber });
-        
+        res.json({ 
+            status: 'success', 
+            number: formattedNumber,
+            log: `Envío registrado a ${formattedNumber}`
+        });
+
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            error: error.message,
+            detalle: 'Error en el servidor'
+        });
     }
 });
 
@@ -192,9 +236,9 @@ app.post('/send', async (req, res) => {
 // ================================================== //
 client.initialize();
 client.on('qr', qr => qrcode.generate(qr, { small: true }));
-client.on('ready', () => console.log('Bot autenticado'));
-client.on('disconnected', (reason) => console.log('Desconectado:', reason));
+client.on('ready', () => console.log('[ESTADO] Bot autenticado y listo'));
+client.on('disconnected', (reason) => console.log('[DESCONECTADO]', reason));
 
 app.listen(port, () => {
-    console.log(`Servidor activo en puerto ${port}`);
+    console.log(`[SERVIDOR] Activo en puerto ${port}`);
 });

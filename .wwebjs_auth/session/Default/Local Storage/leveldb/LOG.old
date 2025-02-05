@@ -1,2 +1,6 @@
-2025/01/31-00:35:03.335 90757 Creating DB /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Local Storage/leveldb since it was missing.
-2025/01/31-00:35:03.348 90757 Reusing MANIFEST /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
+2025/02/01-15:32:24.935 96c78 Reusing MANIFEST /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
+2025/02/01-15:32:24.936 96c78 Recovering log #4
+2025/02/01-15:32:24.938 96c78 Reusing old log /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Local Storage/leveldb/000004.log 
+2025/02/01-15:42:34.519 96d90 Level-0 table #8: started
+2025/02/01-15:42:34.522 96d90 Level-0 table #8: 13936 bytes OK
+2025/02/01-15:42:34.525 96d90 Delete type=0 #4

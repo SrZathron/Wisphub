@@ -1,2 +1,3 @@
-2025/01/31-00:35:03.713 90751 Creating DB /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Session Storage since it was missing.
-2025/01/31-00:35:03.724 90751 Reusing MANIFEST /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Session Storage/MANIFEST-000001
+2025/02/01-15:32:25.569 96c86 Reusing MANIFEST /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Session Storage/MANIFEST-000001
+2025/02/01-15:32:25.570 96c86 Recovering log #3
+2025/02/01-15:32:25.570 96c86 Reusing old log /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Session Storage/000003.log 
