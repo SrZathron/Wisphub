@@ -1,12 +1,6 @@
-2025/02/02-02:46:17.550 98da3 Reusing MANIFEST /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
-2025/02/02-02:46:17.550 98da3 Recovering log #7
-2025/02/02-02:46:17.555 98da3 Reusing old log /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Local Storage/leveldb/000007.log 
-2025/02/02-19:07:10.491 9b9f7 Level-0 table #11: started
-2025/02/02-19:07:10.495 9b9f7 Level-0 table #11: 12493 bytes OK
-2025/02/02-19:07:10.497 9b9f7 Delete type=0 #7
-2025/02/03-23:08:33.528 9fd7e Level-0 table #13: started
-2025/02/03-23:08:33.531 9fd7e Level-0 table #13: 13106 bytes OK
-2025/02/03-23:08:33.534 9fd7e Delete type=0 #10
-2025/02/05-04:39:54.762 a4bcb Level-0 table #15: started
-2025/02/05-04:39:54.768 a4bcb Level-0 table #15: 12496 bytes OK
-2025/02/05-04:39:54.818 a4bcb Delete type=0 #12
+2025/02/09-22:40:40.310 354 Reusing MANIFEST /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
+2025/02/09-22:40:40.312 354 Recovering log #17
+2025/02/09-22:40:40.313 354 Reusing old log /home/lioespider75/Wisphub/.wwebjs_auth/session/Default/Local Storage/leveldb/000017.log 
+2025/02/09-23:20:53.034 6cc1 Level-0 table #22: started
+2025/02/09-23:20:53.040 6cc1 Level-0 table #22: 15431 bytes OK
+2025/02/09-23:20:53.043 6cc1 Delete type=0 #17
