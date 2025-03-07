@@ -169,7 +169,7 @@ const processCommand = async (number, command) => {
     try {
         switch (command.toLowerCase()) {
             case '!tormenta':
-                await sendAlert(number, 'tormenta.jpg', '*Aviso Importante de PuntoNet*\n\nEstimados clientes,\n\nDebido a condiciones climáticas adversas, recomendamos desconectar sus equipos.\n\nAtentamente,\nEquipo PuntoNet');
+                await sendAlert(number, 'tormenta.jpg', *Aviso Importante de PuntoNet*\n\nEstimados clientes,\n\nDebido a la presencia de descargas atmosféricas, les recomendamos tomar la precaución de desconectar sus equipos de internet, incluyendo antenas y routers, para evitar posibles daños.\n\nLa seguridad y el cuidado de sus equipos es nuestra prioridad. Si necesitan asistencia adicional, no duden en contactarnos.\n\nSaludos cordiales,\n\n*El equipo de PuntoNet*);
                 break;
             case '!cambios':
                 await sendAlert(number, '2025.jpg', '¡Feliz Año Nuevo! Comienza el 2025 conectado con PuntoNet.');
