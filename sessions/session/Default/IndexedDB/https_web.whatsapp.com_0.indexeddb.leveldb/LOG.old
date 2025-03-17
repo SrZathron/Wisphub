@@ -1,0 +1,39 @@
+2025/03/16-20:17:41.483 179c6 Recovering log #264
+2025/03/16-20:17:42.008 179c6 Level-0 table #274: started
+2025/03/16-20:17:42.259 179c6 Level-0 table #274: 340795 bytes OK
+2025/03/16-20:17:42.360 179c6 Delete type=2 #263
+2025/03/16-20:17:42.360 179c6 Delete type=2 #270
+2025/03/16-20:17:42.360 179c6 Delete type=3 #260
+2025/03/16-20:17:42.360 179c6 Delete type=0 #264
+2025/03/16-20:17:54.384 179c2 Moved #274 to level-1 340795 bytes OK: files[ 0 1 6 0 0 0 0 ]
+2025/03/16-20:17:54.487 179c2 Compacting 1@1 + 6@2 files
+2025/03/16-20:17:55.634 179c2 Level-0 table #278: started
+2025/03/16-20:17:55.689 179c2 Level-0 table #278: 23193 bytes OK
+2025/03/16-20:17:55.738 179c2 Delete type=0 #275
+2025/03/16-20:17:56.188 179c2 Generated table #276@1: 34514 keys, 2194263 bytes
+2025/03/16-20:17:57.242 179c2 Generated table #279@1: 5396 keys, 2154472 bytes
+2025/03/16-20:17:58.626 179c2 Generated table #280@1: 20161 keys, 2192606 bytes
+2025/03/16-20:18:01.098 179c2 Generated table #281@1: 80475 keys, 2223267 bytes
+2025/03/16-20:18:03.647 179c2 Generated table #282@1: 96429 keys, 2146185 bytes
+2025/03/16-20:18:03.647 179c2 Compacted 1@1 + 6@2 files => 10910793 bytes
+2025/03/16-20:18:03.676 179c2 compacted to: files[ 1 0 5 0 0 0 0 ]
+2025/03/16-20:18:03.681 179d7 Manual compaction at level-0 from '\x003\x00\x00\x00' @ 72057594037927935 : 1 .. '\x004\x00\x00\x00' @ 0 : 0; will stop at '\x003\x00\x00\x05' @ 933163 : 1
+2025/03/16-20:18:03.681 179d7 Compacting 1@0 + 0@1 files
+2025/03/16-20:18:03.732 179d7 Generated table #283@0: 423 keys, 8707 bytes
+2025/03/16-20:18:03.732 179d7 Compacted 1@0 + 0@1 files => 8707 bytes
+2025/03/16-20:18:03.763 179d7 compacted to: files[ 0 1 5 0 0 0 0 ]
+2025/03/16-20:18:03.770 179d7 Delete type=2 #278
+2025/03/16-20:18:03.771 179c0 Manual compaction at level-0 from '\x003\x00\x00\x05' @ 933163 : 1 .. '\x004\x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/03/16-20:18:55.633 179d7 Compacting 1@1 + 1@2 files
+2025/03/16-20:18:57.365 179d7 Generated table #284@1: 34604 keys, 2190157 bytes
+2025/03/16-20:18:57.365 179d7 Compacted 1@1 + 1@2 files => 2190157 bytes
+2025/03/16-20:18:57.435 179d7 compacted to: files[ 0 0 5 0 0 0 0 ]
+2025/03/16-20:18:57.440 179d7 Delete type=2 #283
+2025/03/16-20:18:57.444 179d7 Delete type=2 #274
+2025/03/16-20:18:57.444 179d7 Delete type=2 #269
+2025/03/16-20:18:57.444 179d7 Delete type=2 #267
+2025/03/16-20:18:57.445 179d7 Delete type=2 #271
+2025/03/16-20:18:57.445 179d7 Delete type=2 #272
+2025/03/16-20:18:57.445 179d7 Delete type=2 #268
+2025/03/16-20:18:57.445 179d7 Delete type=2 #276
+2025/03/16-20:18:57.445 179d7 Delete type=2 #266
