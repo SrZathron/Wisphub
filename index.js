@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const fetch = require('node-fetch');
 const fs = require('fs');
+const https = require('https');
 require('dotenv').config();
 
 // ================================================== //
@@ -16,26 +17,20 @@ const MAX_DELAY_MS = process.env.MAX_DELAY || 10000;
 const WISPHUB_API = process.env.WISPHUB_API || 'https://wisphub.net/api';
 const PORT = process.env.PORT || 5000;
 
-
-
 // ================================================== //
 //               FUNCIÓN DE FORMATO CRÍTICA           //
 // ================================================== //
 const formatNumber = (number) => {
-    // Limpiar y normalizar el número
     let cleaned = number.replace(/[^\d+]/g, '')
-                        .replace(/^\+/, '')  // Eliminar el + inicial si existe
-                        .replace(/^0+/, ''); // Eliminar ceros iniciales
+                        .replace(/^\+/, '')
+                        .replace(/^0+/, '');
     
-    // Agregar prefijo 54 si es necesario
     if (!cleaned.startsWith('54')) cleaned = `54${cleaned}`;
     
-    // Asegurar el 9 después del código de país
     if (cleaned.startsWith('54') && !cleaned.startsWith('549')) {
         cleaned = `549${cleaned.slice(2)}`;
     }
     
-    // Validación final
     if (cleaned.length < 10) throw new Error('Número inválido');
     if (!cleaned.match(/^549\d{8,}$/)) throw new Error('Formato incorrecto');
     
@@ -53,17 +48,18 @@ const client = new Client({
         storeTimeout: 60000
     }),
     puppeteer: {
-        executablePath: puppeteer.executablePath(),
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--disable-gpu',
             '--single-process',
             '--no-zygote',
-            '--aggressive-cache-discard',
-            '--disk-cache-size=50000000'
+            '--disable-gpu',
+            '--disable-accelerated-2d-canvas',
+            '--disable-software-rasterizer',
+            '--disable-features=site-per-process,TranslateUI',
+            '--window-size=800,600'
         ],
         headless: true,
         timeout: 60000
@@ -79,20 +75,21 @@ const client = new Client({
 // ================================================== //
 const getWisphubClients = async () => {
     try {
-        const response = await fetch(`${WISPHUB_API}/clients`, {
+        const response = await fetch(`${WISPHUB_API}/clientes/activos`, {
             headers: { 
-                'Authorization': `Bearer ${process.env.WISPHUB_TOKEN}`,
-                'Content-Type': 'application/json'
+                'X-API-Key': process.env.WISPHUB_API_KEY
             },
             timeout: 5000
         });
         
         if (!response.ok) throw new Error(`Error ${response.status}: ${await response.text()}`);
         
-        return (await response.json()).map(client => ({
-            number: client.phone.replace(/\+/g, ''),
-            name: client.name,
-            status: client.status
+        const data = await response.json();
+        
+        return data.data.map(client => ({
+            number: client.telefono_movil.replace(/\+/g, ''),
+            name: client.nombre_completo,
+            status: client.estado_servicio
         }));
         
     } catch (error) {
@@ -102,43 +99,36 @@ const getWisphubClients = async () => {
 };
 
 // ================================================== //
-//               MANEJO DE COMANDOS WHATSAPP         //
+//               MANEJO DE COMANDOS WHATSAPP          //
 // ================================================== //
 client.on('message', async msg => {
     try {
         const sender = msg.from.split('@')[0];
         const body = msg.body.trim();
 
-        // Verificar autorización
         if (!AUTHORIZED_NUMBERS.includes(sender)) {
             console.log(`🚫 Acceso denegado a ${sender}`);
-            return msg.reply('❌ No estás autorizado para usar este bot');
+            return;
         }
 
-        // Solo procesar comandos que empiecen con !enviar:
         if (!body.startsWith('!enviar:')) return;
 
-        // Extraer contenido después de !enviar:
         const contenido = body.split('!enviar:')[1].trim();
         
-        // Obtener lista de clientes
         const clientes = await getWisphubClients();
         const numeros = [...new Set([
             ...clientes.map(c => c.number),
             ...AUTHORIZED_NUMBERS
         ])];
 
-        // Determinar tipo de contenido
         const esComandoEspecial = contenido.startsWith('!');
 
-        // Preparar mensajes
         const mensajes = numeros.map(number => ({
             number,
             content: contenido,
             esComando: esComandoEspecial
         }));
 
-        // Enviar con delay
         await sendMessagesWithDelay(mensajes);
         
         await msg.reply(`✅ Envío completado a ${numeros.length} contactos`);
@@ -193,7 +183,7 @@ const sendMessagesWithDelay = async (messages) => {
 };
 
 // ================================================== //
-//               COMANDOS ESPECIALIZADOS             //
+//               COMANDOS ESPECIALIZADOS (MODIFICADO) //
 // ================================================== //
 const processCommand = async (number, rawCommand) => {
     try {
@@ -223,13 +213,34 @@ const processCommand = async (number, rawCommand) => {
                 if (!args[0]) throw new Error('Formato: !enviar:mensaje');
                 await handleEnvioMasivo(number, args[0]);
                 break;
+
+            // NUEVO COMANDO AÑADIDO
+            case 'clientes':
+                const clientes = await getWisphubClients();
+                if (clientes.length === 0) {
+                    await client.sendMessage(`${number}@c.us`, '❌ No se encontraron clientes activos');
+                    return;
+                }
+                
+                const lista = clientes
+                    .map((cliente, index) => 
+                        `Cliente ${index + 1}: ${cliente.name} - ${cliente.number}`
+                    )
+                    .join('\n');
+                
+                await client.sendMessage(
+                    `${number}@c.us`,
+                    `📋 *Clientes activos (${clientes.length})*\n\n${lista}`
+                );
+                break;
                 
             case 'help':
                 await client.sendMessage(`${number}@c.us`, 
                     '📋 *Comandos disponibles:*\n' +
-                    '!tormenta - Envía alerta meteorológica\n' +
-                    '!cambios - Muestra novedades del servicio\n' +
+                    '!tormenta - Alerta meteorológica\n' +
+                    '!cambios - Novedades del servicio\n' +
                     '!enviar:mensaje - Envío masivo\n' +
+                    '!clientes - Lista de clientes activos\n' + // LÍNEA AÑADIDA
                     '!help - Muestra esta ayuda'
                 );
                 break;
@@ -271,7 +282,6 @@ const handleEnvioMasivo = async (senderNumber, mensaje) => {
         const recipients = await getWisphubClients();
         if (!recipients.length) throw new Error('No hay destinatarios disponibles');
         
-        // Aplicar formato especial a los números
         const numbers = recipients.map(c => {
             try {
                 return formatNumber(c.number);
@@ -281,7 +291,6 @@ const handleEnvioMasivo = async (senderNumber, mensaje) => {
             }
         }).filter(n => n !== null);
 
-        // Eliminar duplicados y agregar números autorizados
         const numerosUnicos = [...new Set([...numbers, ...AUTHORIZED_NUMBERS])];
 
         console.log(`\n📤 Envío masivo desde ${senderNumber} a ${numerosUnicos.length} contactos`);
@@ -298,16 +307,14 @@ const handleEnvioMasivo = async (senderNumber, mensaje) => {
         throw new Error(error.message);
     }
 };
+
 // ================================================== //
 //               CONFIGURACIÓN SERVIDOR              //
 // ================================================== //
 const app = express();
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Configuración mejorada del body-parser
-app.use(bodyParser.json()); // Para application/json
-app.use(bodyParser.urlencoded({ extended: true })); // Para application/x-www-form-urlencoded
-
-// Middleware para verificar errores de parsing
 app.use((err, req, res, next) => {
     if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
         return res.status(400).json({ error: 'JSON inválido en el cuerpo de la solicitud' });
@@ -315,59 +322,43 @@ app.use((err, req, res, next) => {
     next();
 });
 
-let server;
-
-app.post('/send', async (req, res) => {
-    try {
-        // Verificación mejorada del cuerpo
-        if (!req.body || Object.keys(req.body).length === 0) {
-            throw new Error('Cuerpo de solicitud vacío');
-        }
-
-        const { to, message } = req.body;
-        
-        // Validación mejorada
-        if (!to || !message) {
-            throw new Error('Formato requerido: { "to": "número", "message": "texto o comando" }');
-        }
-        
-        const formattedNumber = formatNumber(to);
-        
-        // Determinar si es comando o mensaje normal
-        if (message.startsWith('!')) {
-            await processCommand(formattedNumber, message);
-        } else {
-            await client.sendMessage(`${formattedNumber}@c.us`, message);
-        }
-        
-        res.json({ 
-            success: true,
-            number: formattedNumber,
-            message: 'Mensaje procesado'
-        });
-        
-    } catch (error) {
-        res.status(500).json({ 
-            error: error.message,
-            stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
-        });
-    }
-});
+// ================================================== //
+//               CONFIGURACIÓN HTTPS                 //
+// ================================================== //
+const httpsOptions = {
+    key: fs.readFileSync('/home/server/Wisphub/ssl/private.key'),
+    cert: fs.readFileSync('/home/server/Wisphub/ssl/certificate.crt'),
+    // Comentar esta línea si no usas CA bundle
+    // ca: fs.readFileSync('/home/server/Wisphub/ssl/ca_bundle.crt')
+};
 
 // ================================================== //
 //               MANEJO DE CIERRE LIMPIO             //
 // ================================================== //
 const gracefulShutdown = async () => {
     console.log('\n🔌 Iniciando apagado seguro...');
+    
     try {
+        // 1. Cerrar cliente de WhatsApp primero
+        if (client.pupBrowser) {
+            await client.pupBrowser.close();
+            console.log('✅ Navegador Chromium cerrado');
+        }
+        
+        // 2. Cerrar conexión WebSocket
         await client.destroy();
         console.log('✅ Cliente de WhatsApp cerrado');
         
+        // 3. Detener servidor HTTP/HTTPS
         if (server) {
-            server.close(() => console.log('🚪 Servidor HTTP detenido'));
+            server.close(() => {
+                console.log('🚪 Servidor HTTP detenido');
+                process.exit(0);
+            });
+        } else {
+            process.exit(0);
         }
         
-        setTimeout(() => process.exit(0), 5000);
     } catch (error) {
         console.error('⚠ Error en el cierre:', error);
         process.exit(1);
@@ -376,20 +367,43 @@ const gracefulShutdown = async () => {
 
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
-
 // ================================================== //
 //               INICIALIZACIÓN                      //
 // ================================================== //
-client.on('qr', qr => qrcode.generate(qr, { small: true }));
-client.on('ready', () => console.log('🚀 Bot autenticado y listo'));
-client.on('disconnected', reason => console.log('🔌 Desconectado:', reason));
+client.on('qr', qr => {
+    console.log('⚠️ ESCANEA ESTE QR EN WHATSAPP:');
+    qrcode.generate(qr, { small: true });
+});
+
+client.on('authenticated', () => {
+    console.log('✅ Autenticación exitosa');
+});
+
+client.on('auth_failure', (msg) => {
+    console.error('❌ Fallo autenticación:', msg);
+});
+
+client.on('ready', () => {
+    console.log('🚀 Bot listo para operar');
+    console.log('📡 Estado servidor:', server ? 'Activo' : 'Inactivo');
+});
 
 const startServer = async () => {
     try {
         await client.initialize();
-        server = app.listen(PORT, () => {
-            console.log(`🌐 Servidor activo en puerto ${PORT}`);
-        });
+        
+        // Esperar 5 segundos antes de iniciar el servidor
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        const server = https.createServer(httpsOptions, app)
+            .listen(PORT, '0.0.0.0', () => {
+                console.log(`🔒 Servidor HTTPS activo en puerto ${PORT}`);
+            })
+            .on('error', (err) => {
+                console.error('⚠ Error al iniciar servidor:', err);
+                process.exit(1);
+            });
+            
     } catch (error) {
         console.error('⚠ Error fatal:', error);
         process.exit(1);

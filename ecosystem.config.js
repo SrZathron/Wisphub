@@ -1,12 +1,9 @@
 module.exports = {
-  apps: [
-    {
+    apps: [{
       name: 'whatsapp-bot',
-      script: 'whatsappBot.js',
-      instances: 1, // Número de instancias
-      exec_mode: 'fork', // Modo fork (no cluster)
-      watch: true, // Opcional: para reiniciar cuando haya cambios en el código
-    }
-  ]
-};
-
+      script: 'index.js',
+      env: {
+        NODE_EXTRA_CA_CERTS: '/home/server/Wisphub/ssl/ca_bundle.crt'
+      }
+    }]
+  };
